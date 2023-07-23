@@ -1,0 +1,173 @@
+BROKER SCHEMA com.interface.ventas
+
+
+CREATE COMPUTE MODULE consultas_ValidaTransito
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyMessageHeaders();
+		CREATE FIELD OutputRoot.JSON.Data;
+		DECLARE refOutput REFERENCE TO OutputRoot.JSON.Data;
+		DECLARE recordVendedorRef ROW;
+		DECLARE clienteAux CHARACTER '';
+		
+		DECLARE productoAmanecer1 CHARACTER '';
+		DECLARE productoAmanecer2 CHARACTER '';
+		DECLARE productoAmanecer3 CHARACTER '';
+		DECLARE productoAmanecer4 CHARACTER '';
+		DECLARE productoAmanecer5 CHARACTER '';
+		
+		DECLARE productoDellaNonna1 CHARACTER '';
+		DECLARE productoDellaNonna2 CHARACTER '';
+		DECLARE productoDellaNonna3 CHARACTER '';
+		DECLARE productoDellaNonna4 CHARACTER '';
+		
+		DECLARE productoFavorito1 CHARACTER '';
+		DECLARE productoFavorito2 CHARACTER '';
+		DECLARE productoFavorito3 CHARACTER '';
+		
+		DECLARE productoGrano1 CHARACTER '';
+		DECLARE productoGrano2 CHARACTER '';
+		DECLARE productoGrano3 CHARACTER '';
+		DECLARE productoGrano4 CHARACTER '';
+		
+		
+			
+		SET recordVendedorRef.objeto[] =  SELECT * FROM InputRoot.DFDL.TransitoDetallesData.record[] AS MRole 
+									WHERE   MRole.vendedor = SUBSTRING(Environment.Variables.vendedor AFTER '- ');
+			
+		SET productoAmanecer1 = '0740 CAFE AMANECER MOLIDO GOURMET 500GR';
+		SET productoAmanecer2 = '0741 CAFE AMANECER MOLIDO GOURMET 200GR';
+		SET productoAmanecer3 = '0742 CAFE AMANECER MOLIDO GOURMET 100GR';
+		SET productoAmanecer4 = '10329 CAFE AMANECER EN GRANOS 1KG';
+		SET productoAmanecer5 = '12108 CAFE AMANECER MOLIDO GOURMET AL VACIO 250GR';
+		
+		SET productoDellaNonna1 = '7198 CAFE DELLA NONNA MOLIDO GOURMET 100GR';
+		SET productoDellaNonna2 = '7199 CAFE DELLA NONNA MOLIDO GOURMET 500GR';
+		SET productoDellaNonna3 = '7200 CAFE DELLA NONNA MOLIDO GOURMET 200GR';
+		SET productoDellaNonna4 = '7203 CAFE DELLA NONNA EN GRANOS 1KG';
+		
+		SET productoFavorito1 = '9901 CAFE FAVORITO MOLIDO 50GR';
+		SET productoFavorito2 = '9902 CAFE FAVORITO MOLIDO 100GR';
+		SET productoFavorito3 = '9903 CAFE FAVORITO MOLIDO 200GR';
+		
+		SET productoGrano1 = '111001 MAIZ DE COTUFA AMANECER 400G';
+		SET productoGrano2 = '121001 LENTEJAS AMANECER 400G';
+		SET productoGrano3 = '121002 CARAOTAS NEGRAS AMANECER 400G';
+		SET productoGrano4 = '121004 CARAOTAS NEGRAS AMANECER 800G';
+		
+		
+	
+		
+		SET Environment.Variables.cliente = 'inicio';
+		DECLARE listaClientesValidadosTransito ROW;
+		
+		-- Obtener la longitud del arreglo
+		DECLARE arrayLength INTEGER 0;
+		SET arrayLength = CARDINALITY(recordVendedorRef.objeto[]);
+
+		-- Índice para el bucle
+		DECLARE i INTEGER;
+		SET i = 1;
+		DECLARE countAmanecerAct INTEGER 0;
+		DECLARE countDellaNonnaAct INTEGER 0;
+		DECLARE countFavoritoAct INTEGER 0;
+		DECLARE countGranoAct INTEGER 0;
+		DECLARE varAuxTipoProd CHARACTER '';
+		-- Bucle while para recorrer el arreglo
+		WHILE i <= arrayLength DO
+		-- Acceder al elemento actual del arreglo
+	   	DECLARE currentItem REFERENCE TO recordVendedorRef.objeto[i];
+
+									
+		--IF Environment.Variables.cliente <> currentItem.cliente THEN
+		
+		-- Validando activaciones de amanecer
+		IF (currentItem.articulo = productoAmanecer1 OR 
+			currentItem.articulo = productoAmanecer2 OR 
+			currentItem.articulo = productoAmanecer3 OR 
+			currentItem.articulo = productoAmanecer4 OR 
+			currentItem.articulo = productoAmanecer5 OR
+			currentItem.articulo = productoDellaNonna1 OR 
+			currentItem.articulo = productoDellaNonna2 OR 
+			currentItem.articulo = productoDellaNonna3 OR 
+			currentItem.articulo = productoDellaNonna4) THEN
+
+			SET varAuxTipoProd = 'AMANECERDELLANONNA';
+	
+			DECLARE Field1Exists BOOLEAN EXISTS(listaClientesValidadosTransito.{currentItem.cliente||varAuxTipoProd}[]);
+		
+			IF Field1Exists = FALSE THEN
+				DECLARE Field1ExistsEnDespacho BOOLEAN EXISTS(Environment.Variables.listaClientesActivadosDespacho.{currentItem.cliente||varAuxTipoProd||'DESPACHO'}[]);
+				IF Field1ExistsEnDespacho = FALSE THEN
+					SET countAmanecerAct = countAmanecerAct +1;
+					CREATE LASTCHILD OF listaClientesValidadosTransito NAME currentItem.cliente||'AMANECERDELLANONNA';
+				END IF;
+			END IF;
+		END IF;
+		
+		
+		-- Validando activaciones de Favorito
+		IF (currentItem.articulo = productoFavorito1 OR 
+			currentItem.articulo = productoFavorito2 OR 
+			currentItem.articulo = productoFavorito3) THEN
+			
+			SET varAuxTipoProd = 'FAVORITO';
+			
+			DECLARE Field1Exists BOOLEAN EXISTS(listaClientesValidadosTransito.{currentItem.cliente||varAuxTipoProd}[]);
+		
+			IF Field1Exists = FALSE THEN
+				DECLARE Field1ExistsEnDespacho BOOLEAN EXISTS(Environment.Variables.listaClientesActivadosDespacho.{currentItem.cliente||varAuxTipoProd||'DESPACHO'}[]);
+				IF Field1ExistsEnDespacho = FALSE THEN
+					SET countFavoritoAct = countFavoritoAct +1;
+					CREATE LASTCHILD OF listaClientesValidadosTransito NAME currentItem.cliente||'FAVORITO';
+				END IF;
+			END IF;
+		END IF;
+		
+		-- Validando activaciones de Grano
+		IF (currentItem.articulo = productoGrano1 OR 
+			currentItem.articulo = productoGrano2 OR 
+			currentItem.articulo = productoGrano3 OR
+			currentItem.articulo = productoGrano4) THEN
+			
+			SET varAuxTipoProd = 'GRANO';
+			
+			DECLARE Field1Exists BOOLEAN EXISTS(listaClientesValidadosTransito.{currentItem.cliente||varAuxTipoProd}[]);
+			
+			IF Field1Exists = FALSE THEN
+				DECLARE Field1ExistsEnDespacho BOOLEAN EXISTS(Environment.Variables.listaClientesActivadosDespacho.{currentItem.cliente||varAuxTipoProd||'DESPACHO'}[]);
+				IF Field1ExistsEnDespacho = FALSE THEN
+					SET countGranoAct = countGranoAct +1;
+					CREATE LASTCHILD OF listaClientesValidadosTransito NAME currentItem.cliente||'GRANO';
+				END IF;
+			END IF;
+		END IF;
+		
+    	
+    	-- Incrementar el índice
+		SET i = i + 1;
+		END WHILE;
+		
+		SET refOutput.total_activaciones_despacho_itc_comercial = Environment.Variables.total_activaciones_despacho_itc_comercial;
+		SET refOutput.total_activaciones_despacho_favorito = Environment.Variables.total_activaciones_despacho_favorito;
+		SET refOutput.total_activaciones_despacho_grano = Environment.Variables.total_activaciones_despacho_grano;
+		SET refOutput.total_activaciones_transito_itc_comercial = countAmanecerAct;
+		SET refOutput.total_activaciones_transito_favorito = countFavoritoAct;
+		SET refOutput.total_activaciones_transito_grano = countGranoAct;
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
