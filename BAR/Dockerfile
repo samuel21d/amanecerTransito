@@ -1,5 +1,8 @@
 FROM ibmcom/ace-server:latest
 
+# Acepta los términos y condiciones de la licencia
+ENV LICENSE=accept
+
 USER root
 
 COPY BAR /home/aceuser/bars
